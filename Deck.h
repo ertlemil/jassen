@@ -1,5 +1,8 @@
 #pragma once
 
+#include "Generic.h"
+#include "Card.h"
+
 class Deck
 {
 public:
@@ -15,12 +18,12 @@ public:
 
     std::span<Card> getCards(int playerNumber)
     {
-        if (playerNumber < 1 || playerNumber > 4)
+        if (playerNumber < 0 || playerNumber > 3)
         {
             throw std::out_of_range("Spielernummber außerhalb des erlaubten Bereichs");
         }
 
-        return {cards.begin() + (playerNumber - 1) * 9, 9};
+        return {cards.begin() + playerNumber * 9, 9};
     }
 
 private:

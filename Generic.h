@@ -1,0 +1,9 @@
+#pragma once
+
+#include <vector>
+#include <iostream>
+//#include <print>
+#include <algorithm>
+#include <random>
+#include <array>
+#include <span>
