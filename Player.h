@@ -22,12 +22,12 @@ public:
 
     void setTrumpf()
     {
-        trumpf = static_cast<int>(Trumpf::Eichel);
+        trumpf = static_cast<int>(Trumpf::Bock);
     }
+
+    inline static int trumpf;
 
 private:
     std::span<Card> cards;
     int points;
-
-    inline static int trumpf;
 };
