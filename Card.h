@@ -2,7 +2,7 @@
 
 enum class Farbe { Herz, Laub, Schell, Eichel };
 
-enum class Wert { Sechs, Sieben, Acht, Neun, Zehn, Unter, Ober, König, Ass };
+enum class Wert { Sechs, Sieben, Acht, Neun, Zehn, Unter, Ober, Koenig, Ass, Nell, Bauer };
 
 class Card
 {
@@ -34,13 +34,13 @@ public:
             case Wert::Zehn: return "Zehn";
             case Wert::Unter: return "Unter";
             case Wert::Ober: return "Ober";
-            case Wert::König: return "König";
+            case Wert::Koenig: return "Koenig";
             case Wert::Ass: return "Ass";
             default: return "unknown";
         }
     }
     std::string asString() const
     {
-        return "Farbe: " + farbeToString() + " Wert: " + wertToString();
+        return farbeToString() + "  " + wertToString();
     }
 };

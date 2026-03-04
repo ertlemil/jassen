@@ -63,10 +63,10 @@ private:
         Card(Farbe::Schell, Wert::Ober),
         Card(Farbe::Eichel, Wert::Ober),
 
-        Card(Farbe::Herz, Wert::König),
-        Card(Farbe::Laub, Wert::König),
-        Card(Farbe::Schell, Wert::König),
-        Card(Farbe::Eichel, Wert::König),
+        Card(Farbe::Herz, Wert::Koenig),
+        Card(Farbe::Laub, Wert::Koenig),
+        Card(Farbe::Schell, Wert::Koenig),
+        Card(Farbe::Eichel, Wert::Koenig),
 
         Card(Farbe::Herz, Wert::Ass),
         Card(Farbe::Laub, Wert::Ass),
