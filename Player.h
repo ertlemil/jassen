@@ -2,9 +2,6 @@
 #include "Generic.h"
 #include "Card.h"
 
-
-enum class Trumpf { Herz, Laub, Schell, Eichel, Bock, Geiss, Slalom_Bock, Slalom_Geiss };
-
 class Player
 {
 public:
@@ -20,12 +17,11 @@ public:
         return cards[i];
     }
 
-    void setTrumpf()
+    Trumpf setTrumpf()
     {
-        trumpf = Trumpf::Eichel;
+        return Trumpf::Eichel;
     }
 
-    inline static Trumpf trumpf;
     int points;
 
 private:
