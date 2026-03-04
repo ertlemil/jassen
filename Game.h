@@ -66,87 +66,29 @@ private:
     int currentPlayer = 0;
     int collectivePoints = 0;
 
-
+public: //temp
     int decideWinner(std::vector<Card>& cards)
     {
         if (cards.size() != 4)
             throw std::length_error("Not the right amount of cards for winner");
 
-        int highestPlayer = 0;
-        Farbe dominantColor = {};
-        Wert highestCard = {};
+        int result;
 
-        switch (trumpf)
+        for (auto card : cards)
         {
-            case Trumpf::Eichel:
-                dominantColor = cards.at(0).farbe;
-
-                for (auto const card : cards)
-                {
-                    if (card.farbe == static_cast<Farbe>(Trumpf::Eichel))
-                    {
-                        dominantColor = static_cast<Farbe>(Trumpf::Eichel);
-                        break;
-                    }
-                }
-
-                if (dominantColor != static_cast<Farbe>(Trumpf::Eichel))
-                {
-                    dominantColor = cards.at(0).farbe;
-                }
-
-                for (int i = 0; i < 4; i++)
-                {
-                    std::cout << cards.at(i).asString() << std::endl;
-                    if (cards.at(i).farbe == dominantColor && cards.at(i).wert > highestCard ||
-                        cards.at(i).farbe == static_cast<Farbe>(Trumpf::Eichel) && cards.at(i).wert == Wert::Unter ||
-                        cards.at(i).farbe == static_cast<Farbe>(Trumpf::Eichel) && cards.at(i).wert == Wert::Neun)
-                    {
-                        highestCard = cards.at(i).wert;
-                        highestPlayer = i;
-
-                        if (cards.at(i).farbe == static_cast<Farbe>(Trumpf::Eichel) && cards.at(i).wert == Wert::Unter)
-                        {
-                            highestCard = Wert::Bauer;
-                        } else if (highestCard != Wert::Bauer && cards.at(i).farbe == static_cast<Farbe>(Trumpf::Eichel) && cards.at(i).wert == Wert::Neun)
-                            highestCard = Wert::Nell;
-                    }
-                }
-
-                std::cout << highestPlayer << std::endl;
-                return highestPlayer;
-
-            case Trumpf::Laub:
-
-                return 0;
-
-            case Trumpf::Herz:
-
-                return 0;
-
-            case Trumpf::Schell:
-
-                return 0;
-
-            case Trumpf::Bock:
-
-                return 0;
-
-            case Trumpf::Geiss:
-
-                return 0;
-
-            case Trumpf::Slalom_Bock:
-
-                return 0;
-
-            case Trumpf::Slalom_Geiss:
-
-                return 0;
-
-            default:
-                return -1;
+            std::cout << card.asString() << std::endl;
         }
+
+        result = static_cast<int>(std::distance(cards.begin(), std::max_element(cards.begin(),cards.end(),
+            [this](const Card& a, const Card& b)
+            {
+                return isCardHigher(a, b);
+            }
+        )));
+        std::cout << result << std::endl;
+        return result;
+
+
     }
 
     int calculatePoints(std::vector<Card>& cards, int round)
@@ -180,5 +122,33 @@ private:
                 return sum + value;
             }
         );
+    }
+
+    bool isCardHigher(const Card& currentHighest, const Card& newCard)
+    {
+        if (trumpf == Trumpf::Geiss || trumpf == Trumpf::Slalom_Geiss)
+            return newCard.wert < currentHighest.wert;
+
+        if (newCard.farbe == static_cast<Farbe>(trumpf) && currentHighest.farbe != newCard.farbe)
+            return true;
+
+        if (newCard.farbe == static_cast<Farbe>(trumpf))
+        {
+            if (newCard.wert == Wert::Unter)
+                return true;
+
+            if (newCard.wert == Wert::Neun && currentHighest.wert != Wert::Unter)
+                return true;
+
+            if (currentHighest.wert != Wert::Neun && currentHighest.wert != Wert::Unter)
+                return newCard.wert > currentHighest.wert;
+
+            return false;
+        }
+
+        if (newCard.farbe == currentHighest.farbe)
+            return newCard.wert > currentHighest.wert;
+
+        return false;
     }
 };

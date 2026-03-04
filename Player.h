@@ -19,7 +19,7 @@ public:
 
     Trumpf setTrumpf()
     {
-        return Trumpf::Eichel;
+        return Trumpf::Laub;
     }
 
     int points;
