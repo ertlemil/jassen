@@ -9,4 +9,5 @@
 #include <span>
 #include <map>
 #include <numeric>
+#include <optional>
 #include "GameTypes.h"
