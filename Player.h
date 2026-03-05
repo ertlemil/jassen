@@ -5,7 +5,10 @@
 class Player
 {
 public:
-    Player(const std::span<Card> cards) : cards(cards), points(0) {};
+    Player(const std::span<Card> cardSpan) : cardSpan(cardSpan), points(0)
+    {
+        std::fill(cards.begin(), cards.end(), 0.0f);
+    };
 
     int getPoints() const
     {
@@ -14,7 +17,7 @@ public:
 
     Card playCard(const int i) const
     {
-        return cards[i];
+        return cardSpan[i];
     }
 
     Trumpf setTrumpf()
@@ -25,5 +28,6 @@ public:
     int points;
 
 private:
-    std::span<Card> cards;
+    std::span<Card> cardSpan;
+    std::array<float, 36> cards;
 };

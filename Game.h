@@ -10,7 +10,6 @@ class Game
 public:
     Trumpf trumpf;
 
-
     void play()
     {
         trumpf = players[0].setTrumpf();
@@ -66,7 +65,8 @@ private:
     int currentPlayer = 0;
     int collectivePoints = 0;
 
-public: //temp
+    std::array<std::array<float, 36>, 4> availableCards = {};
+
     int decideWinner(std::vector<Card>& cards)
     {
         if (cards.size() != 4)
