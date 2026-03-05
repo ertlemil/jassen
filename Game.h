@@ -10,37 +10,59 @@ class Game
 public:
     Trumpf trumpf;
 
+    GameState currentGameState;
+
     void play()
     {
         trumpf = players[0].setTrumpf();
+        std::fill(currentGameState.trick.begin(), currentGameState.trick.end(), 0.0f);
+        currentGameState.trick.at(static_cast<int>(trumpf) == 7 ? 6 : static_cast<int>(trumpf)) = 1.0f;
+
+        /////////////Temporär
+        currentGameState.slalomDirection = 1.0f;
+
 
         for (int round = 0; round < NUM_ROUNDS; round++)
         {
             for (int i = 0; i < NUM_PLAYERS; i++)
             {
-                currentCards.push_back(players.at((currentPlayer + i) % NUM_PLAYERS).playCard(round));
+                currentCards.at(i) = players.at(i).playCard(currentGameState);
             }
 
             currentWinner = decideWinner(currentCards);
-            players[(lastWinner + currentWinner) % NUM_PLAYERS].points += calculatePoints(currentCards, round);
+            points[(lastWinner + currentWinner) % NUM_PLAYERS] += calculatePoints(currentCards, round);
             lastWinner = currentWinner;
             currentCards.clear();
-            currentCards.shrink_to_fit();
         }
 
-        for (auto player : players)
-        {
-            std::cout << player.points << std::endl;
-        }
 
         //std::cout << collectivePoints << std::endl;
         //std::cout << lastWinner << std::endl;
     }
 
+
+
+
+
+
+
+
+
+
+
+
+
+
 private:
     static constexpr int NUM_ROUNDS = 9;
     static constexpr int NUM_PLAYERS = 4;
     static constexpr int POINTS_LAST_TRICK = 5;
+
+    std::array<int, 4> points;
+    std::array<float, 2> scaledPoints;
+    std::array<float, 4> trickDecider = {1.0f, 0.0f, 0.0f, 0.0f};
+
+    float slalomDirection;
 
     Deck deck;
 

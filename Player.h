@@ -5,19 +5,25 @@
 class Player
 {
 public:
-    Player(const std::span<Card> cardSpan) : cardSpan(cardSpan), points(0)
+    Player(const std::span<Card> cardSpan) : cardSpan(cardSpan)
     {
         std::fill(cards.begin(), cards.end(), 0.0f);
+
+        for (auto card : cardSpan)
+        {
+            card.toArrayPosition(cards);
+        }
     };
 
-    int getPoints() const
+    Card playCard(GameState gameState) const
     {
-        return points;
-    }
 
-    Card playCard(const int i) const
-    {
-        return cardSpan[i];
+
+
+
+
+
+        return cardSpan[0];
     }
 
     Trumpf setTrumpf()
@@ -25,9 +31,11 @@ public:
         return Trumpf::Laub;
     }
 
-    int points;
+    std::array<float, 36> cards;
 
 private:
+
+
     std::span<Card> cardSpan;
-    std::array<float, 36> cards;
+
 };
