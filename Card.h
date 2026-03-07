@@ -16,9 +16,9 @@ public:
         return farbeToString() + "  " + wertToString();
     }
 
-    void toArrayPosition(std::array<float, 36>& array)
+    int toArrayPosition()
     {
-        array.at(static_cast<int>(farbe) * NUM_ROUNDS + static_cast<int>(wert)) = 1.0f;
+        return static_cast<int>(farbe) * NUM_ROUNDS + static_cast<int>(wert);
     }
 
 private:

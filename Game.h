@@ -8,67 +8,49 @@
 class Game
 {
 public:
-    Trumpf trumpf;
+    struct GameState
+    {
+        Deck deck = {};
+        int previousWinner = 0;
+        int currentWinner = 0;
+        int currentPlayer = 0;
+        Trumpf trick = {};
+        std::array<int, 4> points = {};
+        std::array<float, 2> teamPoints = {};
+        std::vector<Card> currentCards = {};
+        std::array<Player, 4> players = {deck.getCards(0), deck.getCards(1), deck.getCards(2), deck.getCards(3),};
+        std::array<std::vector<Card>, 4> revealedCards;
+        std::vector<Card> playedCards;
+        std::array<std::array<float, 314>, 4> playerPerspective;
+        std::array<std::array<float, 4>, 4> provenEmptyCards;
+        float slalomDirection = 1.0f;
+    };
 
-    GameState currentGameState;
+    GameState state = {};
 
     void play()
     {
-        trumpf = players[0].setTrumpf();
-        std::fill(currentGameState.trick.begin(), currentGameState.trick.end(), 0.0f);
-        currentGameState.trick.at(static_cast<int>(trumpf) == 7 ? 6 : static_cast<int>(trumpf)) = 1.0f;
-
-        /////////////Temporär
-        currentGameState.slalomDirection = 1.0f;
-
+        state.trick = state.players[0].setTrumpf();
 
         for (int round = 0; round < NUM_ROUNDS; round++)
         {
-            for (int i = 0; i < NUM_PLAYERS; i++)
+            for (state.currentPlayer = 0 ; state.currentPlayer  < NUM_PLAYERS; state.currentPlayer++)
             {
-                currentCards.at(i) = players.at(i).playCard(currentGameState);
+                createPlayerPerspective();
+                //state.currentCards.at(state.currentPlayer) = state.players.at(state.currentPlayer).playCard(state.playerPerspective.at(state.currentPlayer));
             }
 
-            currentWinner = decideWinner(currentCards);
-            points[(lastWinner + currentWinner) % NUM_PLAYERS] += calculatePoints(currentCards, round);
-            lastWinner = currentWinner;
-            currentCards.clear();
+            state.currentWinner = decideWinner(state.currentCards);
+            state.points[(state.previousWinner + state.currentWinner) % NUM_PLAYERS] += calculatePoints(state.currentCards, round);
+            state.previousWinner = state.currentWinner;
+            state.currentCards.clear();
         }
-
-
-        //std::cout << collectivePoints << std::endl;
-        //std::cout << lastWinner << std::endl;
     }
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 private:
     static constexpr int NUM_ROUNDS = 9;
     static constexpr int NUM_PLAYERS = 4;
     static constexpr int POINTS_LAST_TRICK = 5;
-
-    std::array<int, 4> points;
-    std::array<float, 2> scaledPoints;
-    std::array<float, 4> trickDecider = {1.0f, 0.0f, 0.0f, 0.0f};
-
-    float slalomDirection;
-
-    Deck deck;
-
-    std::vector<Card> cardsPlayed;
-    std::array<Player, 4> players = {Player(deck.getCards(0)), Player(deck.getCards(1)), Player(deck.getCards(2)), Player(deck.getCards(3))};
-    std::vector<Card> currentCards;
 
     const std::map<Wert, int> cardValues = {
         {Wert::Sechs, 0},
@@ -82,18 +64,103 @@ private:
         {Wert::Ass, 11}
     };
 
-    int lastWinner = 0;
-    int currentWinner;
-    int currentPlayer = 0;
-    int collectivePoints = 0;
 
-    std::array<std::array<float, 36>, 4> availableCards = {};
+    void createPlayerPerspective()
+    {
+        int baseIndex = 0;
+        std::fill(state.playerPerspective.at(state.currentPlayer).begin(), state.playerPerspective.at(state.currentPlayer).end(), 0.0f);
+
+        //Eigene Punkte
+        state.playerPerspective.at(state.currentPlayer).at(baseIndex) = state.teamPoints.at(state.currentPlayer % 2);
+        baseIndex++;
+
+        //Gegener Punkte
+        state.playerPerspective.at(state.currentPlayer).at(baseIndex) = state.teamPoints.at((state.currentPlayer + 1) % 2);
+        baseIndex++;
+
+        //Spielmodus
+        state.playerPerspective.at(state.currentPlayer).at(baseIndex + (static_cast<int>(state.trick) == 7 ? 6 : static_cast<int>(state.trick))) = 1.0f;
+        baseIndex += 7;
+
+        //Slalom Richtung
+        if (state.trick != Trumpf::Slalom_Geiss && state.trick != Trumpf::Geiss)
+            state.playerPerspective.at(state.currentPlayer).at(baseIndex) = 1.0f;
+        baseIndex++;
+
+        //Trumpf Macher
+        state.playerPerspective.at(state.currentPlayer).at(baseIndex + state.previousWinner) = 1.0f;
+        baseIndex += 4;
+
+        //Meine Hand
+        std::copy(state.players.at(state.currentPlayer).cards.begin(), state.players.at(state.currentPlayer).cards.end(), state.playerPerspective.at(state.currentPlayer).begin() + 14);
+        baseIndex += 36;
+
+        //Bereits gespielte Karten
+        for (auto card : state.playedCards)
+        {
+            state.playerPerspective.at(state.currentPlayer).at(baseIndex + card.toArrayPosition()) = 1.0f;
+        }
+        baseIndex += 36;
+
+        //Bekannte Hand Links
+        for (auto card : state.revealedCards.at((state.currentPlayer + 1) % 4))
+        {
+            state.playerPerspective.at(state.currentPlayer).at(baseIndex + card.toArrayPosition()) = 1.0f;
+        }
+        baseIndex += 36;
+
+        //Bekannte Hand Gegenüber
+        for (auto card : state.revealedCards.at((state.currentPlayer + 2) % 4))
+        {
+            state.playerPerspective.at(state.currentPlayer).at(baseIndex + card.toArrayPosition()) = 1.0f;
+        }
+        baseIndex += 36;
+
+        //bekannte Hand Rechts
+        for (auto card : state.revealedCards.at((state.currentPlayer + 3) % 4))
+        {
+            state.playerPerspective.at(state.currentPlayer).at(baseIndex + card.toArrayPosition()) = 1.0f;
+        }
+        baseIndex += 36;
+
+        //Void Farben Links
+        std::copy(state.provenEmptyCards.at((state.currentPlayer + 1) % 4).begin(), state.provenEmptyCards.at((state.currentPlayer + 1) % 4).end(), state.playerPerspective.at(state.currentPlayer).begin() + baseIndex);
+        baseIndex += 4;
+
+        //Void Farben Gegenüber
+        std::copy(state.provenEmptyCards.at((state.currentPlayer + 2) % 4).begin(), state.provenEmptyCards.at((state.currentPlayer + 2) % 4).end(), state.playerPerspective.at(state.currentPlayer).begin() + baseIndex);
+        baseIndex += 4;
+
+        //Void Farben Rechts
+        std::copy(state.provenEmptyCards.at((state.currentPlayer + 3) % 4).begin(), state.provenEmptyCards.at((state.currentPlayer + 3) % 4).end(), state.playerPerspective.at(state.currentPlayer).begin() + baseIndex);
+        baseIndex += 4;
+
+        //1. Karte im Stich
+        if (state.currentCards.size() > 0)
+        {
+            state.playerPerspective.at(state.currentPlayer).at(baseIndex + state.currentCards.at(0).toArrayPosition()) = 1.0f;
+        }
+        baseIndex += 36;
+
+        //2. Karte im Stich
+        if (state.currentCards.size() > 1)
+        {
+            state.playerPerspective.at(state.currentPlayer).at(baseIndex + state.currentCards.at(1).toArrayPosition()) = 1.0f;
+        }
+        baseIndex += 36;
+
+        //3. Karte im Stich
+        if (state.currentCards.size() > 2)
+        {
+            state.playerPerspective.at(state.currentPlayer).at(baseIndex + state.currentCards.at(0).toArrayPosition()) = 1.0f;
+        }
+        baseIndex += 36;
+
+        std::cout << baseIndex << std::endl;
+    }
 
     int decideWinner(std::vector<Card>& cards)
     {
-        if (cards.size() != 4)
-            throw std::length_error("Not the right amount of cards for winner");
-
         int result;
 
         for (auto card : cards)
@@ -125,17 +192,17 @@ private:
             {
                 int value = cardValues.at(card.wert);
 
-                if (trumpf == static_cast<Trumpf>(card.farbe))
+                if (state.trick == static_cast<Trumpf>(card.farbe))
                 {
                     if (card.wert == Wert::Neun)
                         value = 14;
                     if (card.wert == Wert::Unter)
                         value = 20;
                 } else if (
-                    trumpf == Trumpf::Bock ||
-                    trumpf == Trumpf::Geiss ||
-                    trumpf == Trumpf::Slalom_Bock ||
-                    trumpf == Trumpf::Slalom_Geiss)
+                    state.trick == Trumpf::Bock ||
+                    state.trick == Trumpf::Geiss ||
+                    state.trick == Trumpf::Slalom_Bock ||
+                    state.trick == Trumpf::Slalom_Geiss)
                 {
                     if (card.wert == Wert::Acht)
                         value = 8;
@@ -146,15 +213,15 @@ private:
         );
     }
 
-    bool isCardHigher(const Card& currentHighest, const Card& newCard)
+    bool isCardHigher(const Card& currentHighest, const Card& newCard) const
     {
-        if (trumpf == Trumpf::Geiss || trumpf == Trumpf::Slalom_Geiss)
+        if (state.trick == Trumpf::Geiss || state.trick == Trumpf::Slalom_Geiss)
             return newCard.wert < currentHighest.wert;
 
-        if (newCard.farbe == static_cast<Farbe>(trumpf) && currentHighest.farbe != newCard.farbe)
+        if (newCard.farbe == static_cast<Farbe>(state.trick) && currentHighest.farbe != newCard.farbe)
             return true;
 
-        if (newCard.farbe == static_cast<Farbe>(trumpf))
+        if (newCard.farbe == static_cast<Farbe>(state.trick))
         {
             if (newCard.wert == Wert::Unter)
                 return true;

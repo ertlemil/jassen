@@ -11,11 +11,11 @@ public:
 
         for (auto card : cardSpan)
         {
-            card.toArrayPosition(cards);
+            cards.at(card.toArrayPosition()) = 1.0f;
         }
     };
 
-    Card playCard(GameState gameState) const
+    Card playCard(std::array<float, 314> data) const
     {
 
 
