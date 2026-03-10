@@ -16,7 +16,7 @@ public:
         int currentPlayer = 0;
         Trumpf trick = {};
         std::array<int, 4> points = {};
-        std::array<float, 2> teamPoints = {};
+        std::array<int, 2> teamPoints = {};
         std::vector<Card> currentCards = {};
         std::array<Player, 4> players = {deck.getCards(0), deck.getCards(1), deck.getCards(2), deck.getCards(3),};
         std::array<std::vector<Card>, 4> revealedCards;
@@ -25,27 +25,70 @@ public:
         std::array<std::array<float, 4>, 4> provenEmptyCards;
         float slalomDirection = 1.0f;
     };
+    struct StepResult
+    {
+        std::array<float, 314> nextObservation;
+        float reward;
+        bool done;
+    };
 
     GameState state = {};
 
-    void play()
+    std::array<float, 314> reset()
     {
-        state.trick = state.players[0].setTrumpf();
+        state = {};
+        createPlayerPerspective();
+        return state.playerPerspective.at(state.currentPlayer);
+    }
 
+    StepResult step(int cardIdx)
+    {
+        Card playedCard = state.players[state.currentPlayer].playCard(cardIdx);
+        state.currentCards.push_back(playedCard);
+        state.playedCards.push_back(playedCard);
+
+        float reward = 0;
+        bool done = false;
+
+        if (state.currentCards.size() == 4)
+        {
+            state.currentWinner = (decideWinner(state.currentCards) + state.previousWinner) % NUM_PLAYERS;
+
+            int points = calculatePoints(state.currentCards, state.playedCards.size() / 4);
+            state.teamPoints[state.currentWinner % 2] += points;
+
+            reward = static_cast<float>(points);
+
+            if (state.playedCards.size() == 36)
+                done = true;
+        } else
+        {
+            state.currentPlayer = (state.currentPlayer + 1) % NUM_PLAYERS;
+        }
+
+        createPlayerPerspective();
+
+        return {state.playerPerspective[state.currentPlayer], reward, done};
+    }
+
+    /*void play()
+    {
         for (int round = 0; round < NUM_ROUNDS; round++)
         {
-            for (state.currentPlayer = 0 ; state.currentPlayer  < NUM_PLAYERS; state.currentPlayer++)
+            state.trick = state.players[state.previousWinner].setTrumpf();
+            for (int i =  0; i  < NUM_PLAYERS; i++)
             {
+                state.currentPlayer = (state.previousWinner + i) % NUM_PLAYERS;
                 createPlayerPerspective();
-                //state.currentCards.at(state.currentPlayer) = state.players.at(state.currentPlayer).playCard(state.playerPerspective.at(state.currentPlayer));
+                state.currentCards.at(state.currentPlayer) = state.players.at(state.currentPlayer).playCard(state.playerPerspective.at(state.currentPlayer));
             }
 
-            state.currentWinner = decideWinner(state.currentCards);
-            state.points[(state.previousWinner + state.currentWinner) % NUM_PLAYERS] += calculatePoints(state.currentCards, round);
+            state.currentWinner = (state.previousWinner + decideWinner(state.currentCards)) % NUM_PLAYERS;
+            state.points[state.currentWinner] += calculatePoints(state.currentCards, round);
             state.previousWinner = state.currentWinner;
             state.currentCards.clear();
         }
-    }
+    }*/
 
 private:
     static constexpr int NUM_ROUNDS = 9;
@@ -92,7 +135,7 @@ private:
         baseIndex += 4;
 
         //Meine Hand
-        std::copy(state.players.at(state.currentPlayer).cards.begin(), state.players.at(state.currentPlayer).cards.end(), state.playerPerspective.at(state.currentPlayer).begin() + 14);
+        std::copy(state.players.at(state.currentPlayer).cardsEnc.begin(), state.players.at(state.currentPlayer).cardsEnc.end(), state.playerPerspective.at(state.currentPlayer).begin() + 14);
         baseIndex += 36;
 
         //Bereits gespielte Karten
