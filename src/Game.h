@@ -25,6 +25,7 @@ public:
         std::array<std::array<float, 4>, 4> provenEmptyCards;
         float slalomDirection = 1.0f;
     };
+
     struct StepResult
     {
         std::array<float, 314> nextObservation;
@@ -71,24 +72,36 @@ public:
         return {state.playerPerspective[state.currentPlayer], reward, done};
     }
 
-    /*void play()
+    bool checkLegalMove(int cardIdx)
     {
-        for (int round = 0; round < NUM_ROUNDS; round++)
+        //Untertrumpfen
+        if (state.currentCards[0].farbe != static_cast<Farbe>(state.trick))
         {
-            state.trick = state.players[state.previousWinner].setTrumpf();
-            for (int i =  0; i  < NUM_PLAYERS; i++)
+            Wert highestTrick = {};
+            for (auto card : state.currentCards)
             {
-                state.currentPlayer = (state.previousWinner + i) % NUM_PLAYERS;
-                createPlayerPerspective();
-                state.currentCards.at(state.currentPlayer) = state.players.at(state.currentPlayer).playCard(state.playerPerspective.at(state.currentPlayer));
+                if (card.farbe == static_cast<Farbe>(state.trick) && card.wert > highestTrick)
+                    highestTrick = card.wert;
             }
 
-            state.currentWinner = (state.previousWinner + decideWinner(state.currentCards)) % NUM_PLAYERS;
-            state.points[state.currentWinner] += calculatePoints(state.currentCards, round);
-            state.previousWinner = state.currentWinner;
-            state.currentCards.clear();
+            if (state.players[state.currentPlayer].cards.at(cardIdx).farbe == static_cast<Farbe>(state.trick) && state.players[state.currentPlayer].cards.at(cardIdx).wert < highestTrick)
+                return false;
         }
-    }*/
+
+        //Farbzwang
+        if (state.currentCards[0].farbe != state.players[state.currentPlayer].cards.at(cardIdx).farbe)
+        {
+            auto betterCard = std::find_if(state.players[state.currentPlayer].cards.begin(), state.players[state.currentPlayer].cards.end(), [this](Card& card)
+            {
+                return card.farbe == state.currentCards[0].farbe;
+            });
+
+            if (betterCard != state.players[state.currentPlayer].cards.end())
+                return false;
+        }
+
+        return true;
+    }
 
 private:
     static constexpr int NUM_ROUNDS = 9;
@@ -198,8 +211,6 @@ private:
             state.playerPerspective.at(state.currentPlayer).at(baseIndex + state.currentCards.at(0).toArrayPosition()) = 1.0f;
         }
         baseIndex += 36;
-
-        std::cout << baseIndex << std::endl;
     }
 
     int decideWinner(std::vector<Card>& cards)

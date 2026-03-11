@@ -11,7 +11,7 @@ public:
 
         cards.reserve(9);
 
-        std::copy(cardSpan.begin(), cardSpan.end(), cards.begin());
+        std::copy(cardSpan.begin(), cardSpan.end(), std::back_inserter(cards));
 
         for (auto card : cards)
         {
