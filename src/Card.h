@@ -21,6 +21,15 @@ public:
         return static_cast<int>(farbe) * NUM_ROUNDS + static_cast<int>(wert);
     }
 
+    static Card arrayIdxToCard(int idx)
+    {
+        return Card(static_cast<Farbe>(idx / 9), static_cast<Wert>(idx % 9));
+    }
+
+    bool operator==(const Card& other) const
+    {
+        return wert == other.wert && farbe == other.farbe;
+    }
 private:
     static constexpr int NUM_ROUNDS = 9;
 

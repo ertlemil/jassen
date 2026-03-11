@@ -60,6 +60,10 @@ public:
 
             reward = static_cast<float>(points);
 
+            state.currentCards.clear();
+            state.previousWinner = state.currentWinner;
+            state.currentPlayer = state.currentWinner;
+
             if (state.playedCards.size() == 36)
                 done = true;
         } else
@@ -74,8 +78,25 @@ public:
 
     bool checkLegalMove(int cardIdx)
     {
+        Card cardToPlay = Card::arrayIdxToCard(cardIdx);
+
+        //Besitzt Karte
+        if (std::find(state.players[state.currentPlayer].cards.begin(),
+            state.players[state.currentPlayer].cards.end(),
+            cardToPlay) == state.players[state.currentPlayer].cards.end())
+            return false;
+
+        if (state.currentCards.empty())
+            return true;
+
         //Untertrumpfen
-        if (state.currentCards[0].farbe != static_cast<Farbe>(state.trick))
+        if (state.currentCards[0].farbe != static_cast<Farbe>(state.trick) &&
+            std::find_if(state.players[state.currentPlayer].cards.begin(),
+                state.players[state.currentPlayer].cards.end(),
+                [this](Card& card)
+                {
+                    return card.farbe != static_cast<Farbe>(state.trick);
+                }) != state.players[state.currentPlayer].cards.end())
         {
             Wert highestTrick = {};
             for (auto card : state.currentCards)
@@ -84,21 +105,16 @@ public:
                     highestTrick = card.wert;
             }
 
-            if (state.players[state.currentPlayer].cards.at(cardIdx).farbe == static_cast<Farbe>(state.trick) && state.players[state.currentPlayer].cards.at(cardIdx).wert < highestTrick)
+            if (Card::arrayIdxToCard(cardIdx).farbe == static_cast<Farbe>(state.trick) && Card::arrayIdxToCard(cardIdx).wert < highestTrick)
                 return false;
         }
 
         //Farbzwang
-        if (state.currentCards[0].farbe != state.players[state.currentPlayer].cards.at(cardIdx).farbe)
-        {
-            auto betterCard = std::find_if(state.players[state.currentPlayer].cards.begin(), state.players[state.currentPlayer].cards.end(), [this](Card& card)
-            {
-                return card.farbe == state.currentCards[0].farbe;
-            });
-
-            if (betterCard != state.players[state.currentPlayer].cards.end())
-                return false;
-        }
+        if (cardToPlay.farbe != state.currentCards[0].farbe &&
+        std::any_of(state.players[state.currentPlayer].cards.begin(),
+                    state.players[state.currentPlayer].cards.end(),
+                    [this](const Card& c) { return c.farbe == state.currentCards[0].farbe; }))
+            return false;
 
         return true;
     }
@@ -208,19 +224,13 @@ private:
         //3. Karte im Stich
         if (state.currentCards.size() > 2)
         {
-            state.playerPerspective.at(state.currentPlayer).at(baseIndex + state.currentCards.at(0).toArrayPosition()) = 1.0f;
+            state.playerPerspective.at(state.currentPlayer).at(baseIndex + state.currentCards.at(2).toArrayPosition()) = 1.0f;
         }
-        baseIndex += 36;
     }
 
     int decideWinner(std::vector<Card>& cards)
     {
         int result;
-
-        for (auto card : cards)
-        {
-            std::cout << card.asString() << std::endl;
-        }
 
         result = static_cast<int>(std::distance(cards.begin(), std::max_element(cards.begin(),cards.end(),
             [this](const Card& a, const Card& b)
@@ -228,7 +238,6 @@ private:
                 return isCardHigher(a, b);
             }
         )));
-        std::cout << result << std::endl;
         return result;
 
 

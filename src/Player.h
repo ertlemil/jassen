@@ -9,23 +9,40 @@ public:
     {
         std::fill(cardsEnc.begin(), cardsEnc.end(), 0.0f);
 
-        cards.reserve(9);
+        cards.reserve(cardSpan.size());
 
+        setCards(cardSpan);
+    };
+
+    Card playCard(int cardIdx)
+    {
+        Card chosenCard = Card::arrayIdxToCard(cardIdx);
+
+        auto it = std::find(cards.begin(), cards.end(), chosenCard);
+
+        if (it == cards.end())
+        {
+            // Print what's actually in hand when crash happens
+            std::cout << "Tried to play: " << chosenCard.asString() << std::endl;
+            std::cout << "Hand contains: " << std::endl;
+            for (auto& c : cards) std::cout << "  " << c.asString() << std::endl;
+            throw std::out_of_range("Gespielte Karte nicht in der Spielerhand");
+        }
+
+        cards.erase(it);
+        cardsEnc.at(chosenCard.toArrayPosition()) = 0;
+
+        return chosenCard;
+    }
+
+    void setCards(const std::span<Card>& cardSpan)
+    {
         std::copy(cardSpan.begin(), cardSpan.end(), std::back_inserter(cards));
 
         for (auto card : cards)
         {
             cardsEnc.at(card.toArrayPosition()) = 1.0f;
         }
-    };
-
-    Card playCard(int cardIdx)
-    {
-        Card chosenCard = cards.at(cardIdx);
-
-        cards.erase(cards.begin() + cardIdx);
-        cardsEnc.at(chosenCard.toArrayPosition()) = 0;
-        return cardSpan[0];
     }
 
     Trumpf setTrumpf()
@@ -37,8 +54,6 @@ public:
     std::vector<Card> cards;
 
 private:
-
-
     std::span<Card> cardSpan;
 
 };
