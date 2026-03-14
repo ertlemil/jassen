@@ -14,11 +14,11 @@ public:
         int previousWinner = 0;
         int currentWinner = 0;
         int currentPlayer = 0;
-        Trumpf trick = {};
+        Trumpf trumpf = {};
         std::array<int, 4> points = {};
         std::array<int, 2> teamPoints = {};
         std::vector<Card> currentCards = {};
-        std::array<Player, 4> players = {deck.getCards(0), deck.getCards(1), deck.getCards(2), deck.getCards(3),};
+        std::array<Player, 4> players = {deck.getCards(0), deck.getCards(1), deck.getCards(2), deck.getCards(3)};
         std::array<std::vector<Card>, 4> revealedCards;
         std::vector<Card> playedCards;
         std::array<std::array<float, 314>, 4> playerPerspective;
@@ -58,14 +58,23 @@ public:
             int points = calculatePoints(state.currentCards, state.playedCards.size() / 4);
             state.teamPoints[state.currentWinner % 2] += points;
 
-            reward = static_cast<float>(points);
+            int currentTeam = state.currentPlayer % 2;   // team before trick ends
+            int winningTeam = state.currentWinner % 2;
+            reward = (currentTeam == winningTeam) ? static_cast<float>(points) : -static_cast<float>(points);
 
             state.currentCards.clear();
             state.previousWinner = state.currentWinner;
             state.currentPlayer = state.currentWinner;
 
             if (state.playedCards.size() == 36)
+            {
                 done = true;
+                int currentTeam = state.currentPlayer % 2;
+                int opponentTeam = 1 - currentTeam;
+                float margin = static_cast<float>(state.teamPoints[currentTeam] - state.teamPoints[opponentTeam]);
+                reward += margin * 0.1f;
+            }
+
         } else
         {
             state.currentPlayer = (state.currentPlayer + 1) % NUM_PLAYERS;
@@ -90,22 +99,23 @@ public:
             return true;
 
         //Untertrumpfen
-        if (state.currentCards[0].farbe != static_cast<Farbe>(state.trick) &&
-            std::find_if(state.players[state.currentPlayer].cards.begin(),
+        if (state.currentCards[0].farbe != static_cast<Farbe>(state.trumpf) &&
+            std::none_of(state.players[state.currentPlayer].cards.begin(),
                 state.players[state.currentPlayer].cards.end(),
                 [this](Card& card)
                 {
-                    return card.farbe != static_cast<Farbe>(state.trick);
-                }) != state.players[state.currentPlayer].cards.end())
+                    return card.farbe != static_cast<Farbe>(state.trumpf);
+                }
+        ))
         {
             Wert highestTrick = {};
             for (auto card : state.currentCards)
             {
-                if (card.farbe == static_cast<Farbe>(state.trick) && card.wert > highestTrick)
+                if (card.farbe == static_cast<Farbe>(state.trumpf) && card.wert > highestTrick)
                     highestTrick = card.wert;
             }
 
-            if (Card::arrayIdxToCard(cardIdx).farbe == static_cast<Farbe>(state.trick) && Card::arrayIdxToCard(cardIdx).wert < highestTrick)
+            if (Card::arrayIdxToCard(cardIdx).farbe == static_cast<Farbe>(state.trumpf) && Card::arrayIdxToCard(cardIdx).wert < highestTrick)
                 return false;
         }
 
@@ -151,11 +161,11 @@ private:
         baseIndex++;
 
         //Spielmodus
-        state.playerPerspective.at(state.currentPlayer).at(baseIndex + (static_cast<int>(state.trick) == 7 ? 6 : static_cast<int>(state.trick))) = 1.0f;
+        state.playerPerspective.at(state.currentPlayer).at(baseIndex + (static_cast<int>(state.trumpf) == 7 ? 6 : static_cast<int>(state.trumpf))) = 1.0f;
         baseIndex += 7;
 
         //Slalom Richtung
-        if (state.trick != Trumpf::Slalom_Geiss && state.trick != Trumpf::Geiss)
+        if (state.trumpf != Trumpf::Slalom_Geiss && state.trumpf != Trumpf::Geiss)
             state.playerPerspective.at(state.currentPlayer).at(baseIndex) = 1.0f;
         baseIndex++;
 
@@ -255,17 +265,17 @@ private:
             {
                 int value = cardValues.at(card.wert);
 
-                if (state.trick == static_cast<Trumpf>(card.farbe))
+                if (state.trumpf == static_cast<Trumpf>(card.farbe))
                 {
                     if (card.wert == Wert::Neun)
                         value = 14;
                     if (card.wert == Wert::Unter)
                         value = 20;
                 } else if (
-                    state.trick == Trumpf::Bock ||
-                    state.trick == Trumpf::Geiss ||
-                    state.trick == Trumpf::Slalom_Bock ||
-                    state.trick == Trumpf::Slalom_Geiss)
+                    state.trumpf == Trumpf::Bock ||
+                    state.trumpf == Trumpf::Geiss ||
+                    state.trumpf == Trumpf::Slalom_Bock ||
+                    state.trumpf == Trumpf::Slalom_Geiss)
                 {
                     if (card.wert == Wert::Acht)
                         value = 8;
@@ -278,13 +288,13 @@ private:
 
     bool isCardHigher(const Card& currentHighest, const Card& newCard) const
     {
-        if (state.trick == Trumpf::Geiss || state.trick == Trumpf::Slalom_Geiss)
+        if (state.trumpf == Trumpf::Geiss || state.trumpf == Trumpf::Slalom_Geiss)
             return newCard.wert < currentHighest.wert;
 
-        if (newCard.farbe == static_cast<Farbe>(state.trick) && currentHighest.farbe != newCard.farbe)
+        if (newCard.farbe == static_cast<Farbe>(state.trumpf) && currentHighest.farbe != newCard.farbe)
             return true;
 
-        if (newCard.farbe == static_cast<Farbe>(state.trick))
+        if (newCard.farbe == static_cast<Farbe>(state.trumpf))
         {
             if (newCard.wert == Wert::Unter)
                 return true;

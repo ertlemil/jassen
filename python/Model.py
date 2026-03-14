@@ -1,6 +1,5 @@
 from sb3_contrib import MaskablePPO
 from sb3_contrib.common.wrappers import ActionMasker
-import torch
 from Jass_env import JassEnv
 
 def get_action_mask(env: JassEnv):
