@@ -14,6 +14,7 @@ public:
         int previousWinner = 0;
         int currentWinner = 0;
         int currentPlayer = 0;
+        int trumpfDecider = 0;
         Trumpf trumpf = {};
         std::array<int, 4> points = {};
         std::array<int, 2> teamPoints = {};
@@ -29,11 +30,37 @@ public:
     struct StepResult
     {
         std::array<float, 314> nextObservation;
-        float reward;
+        int pointDiff;
         bool done;
     };
 
+
     GameState state = {};
+
+    std::array<float, 152> getFullInformation()
+    {
+        std::array<float, 152> fullInformation = {};
+        int baseIndex = 0;
+
+        fullInformation.at(baseIndex + (static_cast<int>(state.trumpf) == 7 ? 6 : static_cast<int>(state.trumpf))) = 1.0f;
+        baseIndex += 7;
+
+        std::copy(state.players.at(1).cardsEnc.begin(), state.players.at(1).cardsEnc.end(), fullInformation.begin() + baseIndex);
+        baseIndex += 36;
+
+        std::copy(state.players.at(2).cardsEnc.begin(), state.players.at(2).cardsEnc.end(), fullInformation.begin() + baseIndex);
+        baseIndex += 36;
+
+        std::copy(state.players.at(3).cardsEnc.begin(), state.players.at(3).cardsEnc.end(), fullInformation.begin() + baseIndex);
+        baseIndex += 36;
+
+        std::copy(state.players.at(4).cardsEnc.begin(), state.players.at(4).cardsEnc.end(), fullInformation.begin() + baseIndex);
+        baseIndex += 36;
+
+        fullInformation.at(baseIndex) = state.trumpfDecider;
+
+        return fullInformation;
+    }
 
     std::array<float, 314> reset()
     {
@@ -48,31 +75,35 @@ public:
         state.currentCards.push_back(playedCard);
         state.playedCards.push_back(playedCard);
 
-        float reward = 0;
+        int pointDiff = 0;
         bool done = false;
 
         if (state.currentCards.size() == 4)
         {
-            state.currentWinner = (decideWinner(state.currentCards) + state.previousWinner) % NUM_PLAYERS;
+            state.currentWinner = decideWinner(state.currentCards);
+            state.previousWinner = state.currentWinner;
+            state.currentPlayer = state.currentWinner;
 
             int points = calculatePoints(state.currentCards, state.playedCards.size() / 4);
             state.teamPoints[state.currentWinner % 2] += points;
 
-            int currentTeam = state.currentPlayer % 2;   // team before trick ends
-            int winningTeam = state.currentWinner % 2;
-            reward = (currentTeam == winningTeam) ? static_cast<float>(points) : -static_cast<float>(points);
-
             state.currentCards.clear();
-            state.previousWinner = state.currentWinner;
-            state.currentPlayer = state.currentWinner;
 
+            //Game finished
             if (state.playedCards.size() == 36)
             {
                 done = true;
-                int currentTeam = state.currentPlayer % 2;
-                int opponentTeam = 1 - currentTeam;
-                float margin = static_cast<float>(state.teamPoints[currentTeam] - state.teamPoints[opponentTeam]);
-                reward += margin * 0.1f;
+                pointDiff = state.teamPoints.at(1) - state.teamPoints.at(2);
+
+                state.trumpfDecider = (state.trumpfDecider + 1) % 4;
+                state.slalomDirection = 1.0f;
+            }
+
+            //Switching Slalom Direction
+            if (state.trumpf == Trumpf::Slalom_Bock || state.trumpf == Trumpf::Slalom_Geiss)
+            {
+                state.slalomDirection = state.slalomDirection - 1.0f;
+                state.slalomDirection *= -1;
             }
 
         } else
@@ -82,7 +113,7 @@ public:
 
         createPlayerPerspective();
 
-        return {state.playerPerspective[state.currentPlayer], reward, done};
+        return {state.playerPerspective[state.currentPlayer], pointDiff, done};
     }
 
     bool checkLegalMove(int cardIdx)
@@ -146,7 +177,6 @@ private:
         {Wert::Ass, 11}
     };
 
-
     void createPlayerPerspective()
     {
         int baseIndex = 0;
@@ -165,16 +195,15 @@ private:
         baseIndex += 7;
 
         //Slalom Richtung
-        if (state.trumpf != Trumpf::Slalom_Geiss && state.trumpf != Trumpf::Geiss)
-            state.playerPerspective.at(state.currentPlayer).at(baseIndex) = 1.0f;
+        state.playerPerspective.at(state.currentPlayer).at(baseIndex) = state.slalomDirection;
         baseIndex++;
 
         //Trumpf Macher
-        state.playerPerspective.at(state.currentPlayer).at(baseIndex + state.previousWinner) = 1.0f;
+        state.playerPerspective.at(state.currentPlayer).at(baseIndex + state.trumpfDecider) = 1.0f;
         baseIndex += 4;
 
         //Meine Hand
-        std::copy(state.players.at(state.currentPlayer).cardsEnc.begin(), state.players.at(state.currentPlayer).cardsEnc.end(), state.playerPerspective.at(state.currentPlayer).begin() + 14);
+        std::copy(state.players.at(state.currentPlayer).cardsEnc.begin(), state.players.at(state.currentPlayer).cardsEnc.end(), state.playerPerspective.at(state.currentPlayer).begin() + baseIndex);
         baseIndex += 36;
 
         //Bereits gespielte Karten
@@ -249,8 +278,6 @@ private:
             }
         )));
         return result;
-
-
     }
 
     int calculatePoints(std::vector<Card>& cards, int round)
@@ -288,7 +315,7 @@ private:
 
     bool isCardHigher(const Card& currentHighest, const Card& newCard) const
     {
-        if (state.trumpf == Trumpf::Geiss || state.trumpf == Trumpf::Slalom_Geiss)
+        if (state.trumpf == Trumpf::Geiss || state.slalomDirection == 0.0f)
             return newCard.wert < currentHighest.wert;
 
         if (newCard.farbe == static_cast<Farbe>(state.trumpf) && currentHighest.farbe != newCard.farbe)
