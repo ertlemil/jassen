@@ -22,14 +22,15 @@ public:
         std::array<Player, 4> players = {deck.getCards(0), deck.getCards(1), deck.getCards(2), deck.getCards(3)};
         std::array<std::vector<Card>, 4> revealedCards;
         std::vector<Card> playedCards;
-        std::array<std::array<float, 314>, 4> playerPerspective;
+        std::array<float, 314> playerPerspective;
         std::array<std::array<float, 4>, 4> provenEmptyCards;
         float slalomDirection = 1.0f;
     };
 
     struct StepResult
     {
-        std::array<float, 314> nextObservation;
+        std::array<float, 314> nextActorObservation;
+        std::array<float, 374> nextCriticObservation;
         int pointDiff;
         bool done;
     };
@@ -37,27 +38,53 @@ public:
 
     GameState state = {};
 
-    std::array<float, 152> getFullInformation()
+    std::array<float, 374> getFullInformation()
     {
-        std::array<float, 152> fullInformation = {};
+        std::array<float,374> fullInformation = {};
         int baseIndex = 0;
 
+        //Spielmodus
         fullInformation.at(baseIndex + (static_cast<int>(state.trumpf) == 7 ? 6 : static_cast<int>(state.trumpf))) = 1.0f;
         baseIndex += 7;
 
-        std::copy(state.players.at(1).cardsEnc.begin(), state.players.at(1).cardsEnc.end(), fullInformation.begin() + baseIndex);
-        baseIndex += 36;
+        //Spieler Karten
+        for (int player = 0; player < NUM_PLAYERS; player++)
+        {
+            std::copy(state.players.at((player + state.currentPlayer) % 4).cardsEnc.begin(), state.players.at((player + state.currentPlayer) % 4).cardsEnc.end(), fullInformation.begin() + baseIndex);
+            baseIndex += 36;
+        }
 
-        std::copy(state.players.at(2).cardsEnc.begin(), state.players.at(2).cardsEnc.end(), fullInformation.begin() + baseIndex);
-        baseIndex += 36;
+        //Trumpf Ansager
+        fullInformation.at(baseIndex + (4 - state.currentPlayer) % 4) = 1.0f;
+        baseIndex += 4;
 
-        std::copy(state.players.at(3).cardsEnc.begin(), state.players.at(3).cardsEnc.end(), fullInformation.begin() + baseIndex);
-        baseIndex += 36;
+        //Slalom Richtung
+        fullInformation.at(baseIndex) = state.slalomDirection;
+        baseIndex++;
 
-        std::copy(state.players.at(4).cardsEnc.begin(), state.players.at(4).cardsEnc.end(), fullInformation.begin() + baseIndex);
-        baseIndex += 36;
+        //Gezeigte Karten
+        for (int player = 0; player < NUM_PLAYERS; player++)
+        {
+            for (auto card : state.revealedCards.at(player))
+            {
+                fullInformation.at(baseIndex + ((player + state.currentPlayer) % 4) * 36 + card.toArrayPosition()) = 1.0f;
+            }
+            baseIndex += 36;
+        }
 
-        fullInformation.at(baseIndex) = state.trumpfDecider;
+        fullInformation.at(baseIndex) = state.teamPoints[state.currentPlayer % 2] / 157.0f;
+        baseIndex++;
+
+        fullInformation.at(baseIndex) = state.teamPoints[(state.currentPlayer + 1) % 2] / 157.0f;
+        baseIndex++;
+
+        //Karten im Stich
+        //Muss an letzter Stelle durgchgegeben werden (foreach)
+        for (auto card : state.playedCards)
+        {
+            fullInformation.at(baseIndex + card.toArrayPosition()) = 1.0f;
+            baseIndex += 36;
+        }
 
         return fullInformation;
     }
@@ -66,7 +93,7 @@ public:
     {
         state = {};
         createPlayerPerspective();
-        return state.playerPerspective.at(state.currentPlayer);
+        return state.playerPerspective;
     }
 
     StepResult step(int cardIdx)
@@ -93,9 +120,8 @@ public:
             if (state.playedCards.size() == 36)
             {
                 done = true;
-                pointDiff = state.teamPoints.at(1) - state.teamPoints.at(2);
+                pointDiff = state.teamPoints.at(0) - state.teamPoints.at(1);
 
-                state.trumpfDecider = (state.trumpfDecider + 1) % 4;
                 state.slalomDirection = 1.0f;
             }
 
@@ -113,7 +139,7 @@ public:
 
         createPlayerPerspective();
 
-        return {state.playerPerspective[state.currentPlayer], pointDiff, done};
+        return {state.playerPerspective, getFullInformation() ,pointDiff, done};
     }
 
     bool checkLegalMove(int cardIdx)
@@ -180,90 +206,62 @@ private:
     void createPlayerPerspective()
     {
         int baseIndex = 0;
-        std::fill(state.playerPerspective.at(state.currentPlayer).begin(), state.playerPerspective.at(state.currentPlayer).end(), 0.0f);
+        std::fill(state.playerPerspective.begin(), state.playerPerspective.end(), 0.0f);
 
         //Eigene Punkte
-        state.playerPerspective.at(state.currentPlayer).at(baseIndex) = state.teamPoints.at(state.currentPlayer % 2);
+        state.playerPerspective.at(baseIndex) = state.teamPoints.at(state.currentPlayer % 2);
         baseIndex++;
 
         //Gegener Punkte
-        state.playerPerspective.at(state.currentPlayer).at(baseIndex) = state.teamPoints.at((state.currentPlayer + 1) % 2);
+        state.playerPerspective.at(baseIndex) = state.teamPoints.at((state.currentPlayer + 1) % 2);
         baseIndex++;
 
         //Spielmodus
-        state.playerPerspective.at(state.currentPlayer).at(baseIndex + (static_cast<int>(state.trumpf) == 7 ? 6 : static_cast<int>(state.trumpf))) = 1.0f;
+        state.playerPerspective.at(baseIndex + (static_cast<int>(state.trumpf) == 7 ? 6 : static_cast<int>(state.trumpf))) = 1.0f;
         baseIndex += 7;
 
         //Slalom Richtung
-        state.playerPerspective.at(state.currentPlayer).at(baseIndex) = state.slalomDirection;
+        state.playerPerspective.at(baseIndex) = state.slalomDirection;
         baseIndex++;
 
         //Trumpf Macher
-        state.playerPerspective.at(state.currentPlayer).at(baseIndex + state.trumpfDecider) = 1.0f;
+        state.playerPerspective.at(baseIndex + state.trumpfDecider) = 1.0f;
         baseIndex += 4;
 
         //Meine Hand
-        std::copy(state.players.at(state.currentPlayer).cardsEnc.begin(), state.players.at(state.currentPlayer).cardsEnc.end(), state.playerPerspective.at(state.currentPlayer).begin() + baseIndex);
+        std::copy(state.players.at(state.currentPlayer).cardsEnc.begin(), state.players.at(state.currentPlayer).cardsEnc.end(), state.playerPerspective.begin() + baseIndex);
         baseIndex += 36;
 
         //Bereits gespielte Karten
         for (auto card : state.playedCards)
         {
-            state.playerPerspective.at(state.currentPlayer).at(baseIndex + card.toArrayPosition()) = 1.0f;
+            state.playerPerspective.at(baseIndex + card.toArrayPosition()) = 1.0f;
         }
         baseIndex += 36;
 
-        //Bekannte Hand Links
-        for (auto card : state.revealedCards.at((state.currentPlayer + 1) % 4))
+        //Bekannte Karten
+        for (int player = 1; player < NUM_PLAYERS; player++)
         {
-            state.playerPerspective.at(state.currentPlayer).at(baseIndex + card.toArrayPosition()) = 1.0f;
+            for (auto card : state.revealedCards.at((state.currentPlayer + player) % 4))
+            {
+                state.playerPerspective.at(baseIndex + card.toArrayPosition()) = 1.0f;
+            }
+            baseIndex += 36;
         }
-        baseIndex += 36;
 
-        //Bekannte Hand Gegenüber
-        for (auto card : state.revealedCards.at((state.currentPlayer + 2) % 4))
+        //void Farben
+        for (int player = 1; player < NUM_PLAYERS; player++)
         {
-            state.playerPerspective.at(state.currentPlayer).at(baseIndex + card.toArrayPosition()) = 1.0f;
+            std::copy(state.provenEmptyCards.at((state.currentPlayer + player) % 4).begin(), state.provenEmptyCards.at((state.currentPlayer + player) % 4).end(), state.playerPerspective.begin() + baseIndex);
+            baseIndex += 4;
         }
-        baseIndex += 36;
 
-        //bekannte Hand Rechts
-        for (auto card : state.revealedCards.at((state.currentPlayer + 3) % 4))
+        //Karten im Stich
+        //Muss an letzter Stelle durgchgegeben werden (foreach)
+        for (auto card : state.playedCards)
         {
-            state.playerPerspective.at(state.currentPlayer).at(baseIndex + card.toArrayPosition()) = 1.0f;
-        }
-        baseIndex += 36;
-
-        //Void Farben Links
-        std::copy(state.provenEmptyCards.at((state.currentPlayer + 1) % 4).begin(), state.provenEmptyCards.at((state.currentPlayer + 1) % 4).end(), state.playerPerspective.at(state.currentPlayer).begin() + baseIndex);
-        baseIndex += 4;
-
-        //Void Farben Gegenüber
-        std::copy(state.provenEmptyCards.at((state.currentPlayer + 2) % 4).begin(), state.provenEmptyCards.at((state.currentPlayer + 2) % 4).end(), state.playerPerspective.at(state.currentPlayer).begin() + baseIndex);
-        baseIndex += 4;
-
-        //Void Farben Rechts
-        std::copy(state.provenEmptyCards.at((state.currentPlayer + 3) % 4).begin(), state.provenEmptyCards.at((state.currentPlayer + 3) % 4).end(), state.playerPerspective.at(state.currentPlayer).begin() + baseIndex);
-        baseIndex += 4;
-
-        //1. Karte im Stich
-        if (state.currentCards.size() > 0)
-        {
-            state.playerPerspective.at(state.currentPlayer).at(baseIndex + state.currentCards.at(0).toArrayPosition()) = 1.0f;
-        }
-        baseIndex += 36;
-
-        //2. Karte im Stich
-        if (state.currentCards.size() > 1)
-        {
-            state.playerPerspective.at(state.currentPlayer).at(baseIndex + state.currentCards.at(1).toArrayPosition()) = 1.0f;
-        }
-        baseIndex += 36;
-
-        //3. Karte im Stich
-        if (state.currentCards.size() > 2)
-        {
-            state.playerPerspective.at(state.currentPlayer).at(baseIndex + state.currentCards.at(2).toArrayPosition()) = 1.0f;
+            state.playerPerspective.at(baseIndex + card.toArrayPosition()) = 1.0f;
+            baseIndex += 36;
         }
     }
 

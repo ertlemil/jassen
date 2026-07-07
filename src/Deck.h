@@ -8,8 +8,8 @@ class Deck
 public:
     void shuffle()
     {
-        static std::random_device rd;
-        static std::mt19937 gen(rd());
+        thread_local std::random_device rd;
+        thread_local std::mt19937 gen(rd());
 
         std::shuffle(cards.begin(), cards.end(), gen);
     }
