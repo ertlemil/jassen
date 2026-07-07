@@ -26,7 +26,6 @@ public:
         return {cards.begin() + playerNumber * 9, 9};
     }
 
-private:
     std::array<Card, 36> cards = {
         Card(Farbe::Herz, Wert::Sechs),
         Card(Farbe::Laub, Wert::Sechs),

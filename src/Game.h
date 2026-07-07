@@ -31,6 +31,7 @@ public:
     {
         std::array<float, 314> nextActorObservation;
         std::array<float, 374> nextCriticObservation;
+        std::array<bool, 36> mask;
         int pointDiff;
         bool done;
     };
@@ -38,56 +39,7 @@ public:
 
     GameState state = {};
 
-    std::array<float, 374> getFullInformation()
-    {
-        std::array<float,374> fullInformation = {};
-        int baseIndex = 0;
 
-        //Spielmodus
-        fullInformation.at(baseIndex + (static_cast<int>(state.trumpf) == 7 ? 6 : static_cast<int>(state.trumpf))) = 1.0f;
-        baseIndex += 7;
-
-        //Spieler Karten
-        for (int player = 0; player < NUM_PLAYERS; player++)
-        {
-            std::copy(state.players.at((player + state.currentPlayer) % 4).cardsEnc.begin(), state.players.at((player + state.currentPlayer) % 4).cardsEnc.end(), fullInformation.begin() + baseIndex);
-            baseIndex += 36;
-        }
-
-        //Trumpf Ansager
-        fullInformation.at(baseIndex + (4 - state.currentPlayer) % 4) = 1.0f;
-        baseIndex += 4;
-
-        //Slalom Richtung
-        fullInformation.at(baseIndex) = state.slalomDirection;
-        baseIndex++;
-
-        //Gezeigte Karten
-        for (int player = 0; player < NUM_PLAYERS; player++)
-        {
-            for (auto card : state.revealedCards.at(player))
-            {
-                fullInformation.at(baseIndex + ((player + state.currentPlayer) % 4) * 36 + card.toArrayPosition()) = 1.0f;
-            }
-            baseIndex += 36;
-        }
-
-        fullInformation.at(baseIndex) = state.teamPoints[state.currentPlayer % 2] / 157.0f;
-        baseIndex++;
-
-        fullInformation.at(baseIndex) = state.teamPoints[(state.currentPlayer + 1) % 2] / 157.0f;
-        baseIndex++;
-
-        //Karten im Stich
-        //Muss an letzter Stelle durgchgegeben werden (foreach)
-        for (auto card : state.playedCards)
-        {
-            fullInformation.at(baseIndex + card.toArrayPosition()) = 1.0f;
-            baseIndex += 36;
-        }
-
-        return fullInformation;
-    }
 
     std::array<float, 314> reset()
     {
@@ -139,51 +91,31 @@ public:
 
         createPlayerPerspective();
 
-        return {state.playerPerspective, getFullInformation() ,pointDiff, done};
+        return {state.playerPerspective, createCriticInformation(), createMask() ,pointDiff, done};
     }
 
-    bool checkLegalMove(int cardIdx)
+    std::array<bool, 36> createMask()
     {
-        Card cardToPlay = Card::arrayIdxToCard(cardIdx);
-
-        //Besitzt Karte
-        if (std::find(state.players[state.currentPlayer].cards.begin(),
-            state.players[state.currentPlayer].cards.end(),
-            cardToPlay) == state.players[state.currentPlayer].cards.end())
-            return false;
-
-        if (state.currentCards.empty())
-            return true;
-
-        //Untertrumpfen
-        if (state.currentCards[0].farbe != static_cast<Farbe>(state.trumpf) &&
-            std::none_of(state.players[state.currentPlayer].cards.begin(),
-                state.players[state.currentPlayer].cards.end(),
-                [this](Card& card)
-                {
-                    return card.farbe != static_cast<Farbe>(state.trumpf);
-                }
-        ))
+        bool playableCardfound;
+        std::array<bool, 36> mask;
+        for (int i = 0; i < 36; i++)
         {
-            Wert highestTrick = {};
-            for (auto card : state.currentCards)
-            {
-                if (card.farbe == static_cast<Farbe>(state.trumpf) && card.wert > highestTrick)
-                    highestTrick = card.wert;
-            }
+            bool result = checkLegalCard(Card::arrayIdxToCard(i));
+            mask.at(i) = result;
 
-            if (Card::arrayIdxToCard(cardIdx).farbe == static_cast<Farbe>(state.trumpf) && Card::arrayIdxToCard(cardIdx).wert < highestTrick)
-                return false;
+            if (result)
+                playableCardfound = true;
         }
 
-        //Farbzwang
-        if (cardToPlay.farbe != state.currentCards[0].farbe &&
-        std::any_of(state.players[state.currentPlayer].cards.begin(),
-                    state.players[state.currentPlayer].cards.end(),
-                    [this](const Card& c) { return c.farbe == state.currentCards[0].farbe; }))
-            return false;
+        if (!playableCardfound)
+        {
+            for (auto card : state.players.at(state.currentPlayer).cards)
+            {
+                mask.at(card.toArrayPosition()) = true;
+            }
+        }
 
-        return true;
+        return mask;
     }
 
 private:
@@ -202,6 +134,48 @@ private:
         {Wert::Koenig, 4},
         {Wert::Ass, 11}
     };
+
+    bool checkLegalCard(Card card)
+    {
+        //Besitzt Karte
+        if (std::find(state.players[state.currentPlayer].cards.begin(),
+            state.players[state.currentPlayer].cards.end(),
+            card) == state.players[state.currentPlayer].cards.end())
+            return false;
+
+        if (state.currentCards.empty())
+            return true;
+
+        //Untertrumpfen
+        if (state.currentCards[0].farbe != static_cast<Farbe>(state.trumpf) &&
+            std::none_of(state.players[state.currentPlayer].cards.begin(),
+                state.players[state.currentPlayer].cards.end(),
+                [this](Card& c)
+                {
+                    return c.farbe != static_cast<Farbe>(state.trumpf);
+                }
+            ))
+        {
+            Card highestCard = card;
+            for (auto card : state.currentCards)
+            {
+                if (card.farbe == static_cast<Farbe>(state.trumpf) && isCardHigherOrEqual(highestCard, card))
+                    highestCard = card;
+            }
+
+            if (card.farbe == static_cast<Farbe>(state.trumpf) && isCardHigherOrEqual(card, highestCard))
+                return false;
+        }
+
+        //Farbzwang
+        if (card.farbe != state.currentCards[0].farbe &&
+        std::any_of(state.players[state.currentPlayer].cards.begin(),
+                    state.players[state.currentPlayer].cards.end(),
+                    [this](const Card& c) { return c.farbe == state.currentCards[0].farbe; }))
+            return false;
+
+        return true;
+    }
 
     void createPlayerPerspective()
     {
@@ -265,6 +239,57 @@ private:
         }
     }
 
+    std::array<float, 374> createCriticInformation()
+    {
+        std::array<float,374> fullInformation = {};
+        int baseIndex = 0;
+
+        //Spielmodus
+        fullInformation.at(baseIndex + (static_cast<int>(state.trumpf) == 7 ? 6 : static_cast<int>(state.trumpf))) = 1.0f;
+        baseIndex += 7;
+
+        //Spieler Karten
+        for (int player = 0; player < NUM_PLAYERS; player++)
+        {
+            std::copy(state.players.at((player + state.currentPlayer) % 4).cardsEnc.begin(), state.players.at((player + state.currentPlayer) % 4).cardsEnc.end(), fullInformation.begin() + baseIndex);
+            baseIndex += 36;
+        }
+
+        //Trumpf Ansager
+        fullInformation.at(baseIndex + (4 - state.currentPlayer) % 4) = 1.0f;
+        baseIndex += 4;
+
+        //Slalom Richtung
+        fullInformation.at(baseIndex) = state.slalomDirection;
+        baseIndex++;
+
+        //Gezeigte Karten
+        for (int player = 0; player < NUM_PLAYERS; player++)
+        {
+            for (auto card : state.revealedCards.at(player))
+            {
+                fullInformation.at(baseIndex + ((player + state.currentPlayer) % 4) * 36 + card.toArrayPosition()) = 1.0f;
+            }
+            baseIndex += 36;
+        }
+
+        fullInformation.at(baseIndex) = state.teamPoints[state.currentPlayer % 2] / 157.0f;
+        baseIndex++;
+
+        fullInformation.at(baseIndex) = state.teamPoints[(state.currentPlayer + 1) % 2] / 157.0f;
+        baseIndex++;
+
+        //Karten im Stich
+        //Muss an letzter Stelle durgchgegeben werden (foreach)
+        for (auto card : state.currentCards)
+        {
+            fullInformation.at(baseIndex + card.toArrayPosition()) = 1.0f;
+            baseIndex += 36;
+        }
+
+        return fullInformation;
+    }
+
     int decideWinner(std::vector<Card>& cards)
     {
         int result;
@@ -272,7 +297,7 @@ private:
         result = static_cast<int>(std::distance(cards.begin(), std::max_element(cards.begin(),cards.end(),
             [this](const Card& a, const Card& b)
             {
-                return isCardHigher(a, b);
+                return isCardHigherOrEqual(a, b);
             }
         )));
         return result;
@@ -283,7 +308,7 @@ private:
         if (cards.size() != NUM_PLAYERS)
             throw std::length_error("Fehlerhafte Anzahl Karten bei Punktebewertung");
 
-        return (round == NUM_ROUNDS - 1 ? POINTS_LAST_TRICK : 0) + std::accumulate(
+        return (round == NUM_ROUNDS ? POINTS_LAST_TRICK : 0) + std::accumulate(
             cards.begin(),
             cards.end(), 0,
             [this](int sum, const Card& card)
@@ -311,8 +336,11 @@ private:
         );
     }
 
-    bool isCardHigher(const Card& currentHighest, const Card& newCard) const
+    bool isCardHigherOrEqual(const Card& currentHighest, const Card& newCard) const
     {
+        if (currentHighest == newCard)
+            return true;
+
         if (state.trumpf == Trumpf::Geiss || state.slalomDirection == 0.0f)
             return newCard.wert < currentHighest.wert;
 

@@ -16,6 +16,5 @@ PYBIND11_MODULE(jass_engine, m) {
     py::class_<Game>(m, "Game")
         .def(py::init<>())
         .def("reset", &Game::reset, "Setzt das Spiel zurück und liefert die initiale Perspektive")
-        .def("step", &Game::step, py::arg("cardIdx"), "Führt einen Schritt mit der Karten-ID aus")
-        .def("checkLegalMove", &Game::checkLegalMove, py::arg("cardIdx"), "Kontrolliert ob eine Karte legal ist.");
+        .def("step", &Game::step, py::arg("cardIdx"), "Führt einen Schritt mit der Karten-ID aus");
 }
