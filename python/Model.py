@@ -44,7 +44,7 @@ lmbda = 0.95
 entropy_eps = 1e-2
 
 actor_net = nn.Sequential(
-    nn.Linear(310, 256),
+    nn.Linear(314, 256),
     nn.LayerNorm(256),
     nn.ReLU(),
     nn.Linear(256, 128),
@@ -53,7 +53,7 @@ actor_net = nn.Sequential(
 )
 
 critic_net = nn.Sequential(
-    nn.Linear(155, 128),
+    nn.Linear(374, 256),
     nn.LayerNorm(256),
     nn.ReLU(),
     nn.Linear(128, 64),
