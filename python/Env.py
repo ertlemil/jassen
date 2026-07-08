@@ -50,7 +50,7 @@ class JassEnv(EnvBase):
         pass
 
     def _make_specs(self):
-        self.observation_spec = Composite(
+        self.observation_spec = Composite( 
             observation=UnboundedContinuous(
                 shape=torch.Size([*self.batch_size, 350]),
                 dtype=torch.float32

@@ -1,4 +1,4 @@
-import JassEnv from Env
+from Env import JassEnv
 import warnings
 warnings.filterwarnings("ignore")
 from torch import multiprocessing
