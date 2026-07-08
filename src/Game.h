@@ -21,7 +21,6 @@ public:
         std::vector<Card> currentCards = {};
         std::array<Player, 4> players = {deck.getCards(0), deck.getCards(1), deck.getCards(2), deck.getCards(3)};
         std::vector<Card> playedCards;
-        std::array<float, 350> playerPerspective;
         std::array<std::array<float, 4>, 4> provenEmptyCards;
         float slalomDirection = 1.0f;
     };
@@ -32,7 +31,7 @@ public:
         std::array<float, 350> nextActorObservation;
         std::array<float, 410> nextCriticObservation;
         std::array<bool, 36> mask;
-        int pointDiff;
+        float reward;
         bool done;
     };
 
@@ -41,8 +40,7 @@ public:
     std::array<float, 350> reset()
     {
         state = {};
-        createPlayerPerspective();
-        return state.playerPerspective;
+        return createPlayerPerspective();
     }
 
     StepResult step(int cardIdx)
@@ -51,7 +49,7 @@ public:
         state.currentCards.push_back(playedCard);
         state.playedCards.push_back(playedCard);
 
-        int pointDiff = 0;
+        float reward = 0;
         bool done = false;
 
         if (state.currentCards.size() == 4)
@@ -69,7 +67,7 @@ public:
             if (state.playedCards.size() == 36)
             {
                 done = true;
-                pointDiff = state.teamPoints.at(0) - state.teamPoints.at(1);
+                reward = (state.teamPoints.at(state.currentPlayer % 2) - state.teamPoints.at((state.currentPlayer + 1) % 2)) / 157.0f;
 
                 state.slalomDirection = 1.0f;
             }
@@ -88,7 +86,7 @@ public:
 
         createPlayerPerspective();
 
-        return {state.playerPerspective, createCriticInformation(), createMask() ,pointDiff, done};
+        return {createPlayerPerspective(), createCriticInformation(), createMask(), reward, done};
     }
 
 private:
@@ -175,63 +173,67 @@ private:
         return true;
     }
 
-    void createPlayerPerspective()
+    std::array<float, 350> createPlayerPerspective()
     {
+        std::array<float, 350> playerPerspective = {};
         int baseIndex = 0;
-        std::fill(state.playerPerspective.begin(), state.playerPerspective.end(), 0.0f);
+        std::fill(playerPerspective.begin(), playerPerspective.end(), 0.0f);
 
         //Eigene Punkte
-        state.playerPerspective.at(baseIndex) = state.teamPoints.at(state.currentPlayer % 2);
+        playerPerspective.at(baseIndex) = state.teamPoints.at(state.currentPlayer % 2);
         baseIndex++;
 
         //Gegener Punkte
-        state.playerPerspective.at(baseIndex) = state.teamPoints.at((state.currentPlayer + 1) % 2);
+        playerPerspective.at(baseIndex) = state.teamPoints.at((state.currentPlayer + 1) % 2);
         baseIndex++;
 
         //Spielmodus
-        state.playerPerspective.at(baseIndex + (static_cast<int>(state.trumpf) == 7 ? 6 : static_cast<int>(state.trumpf))) = 1.0f;
+        playerPerspective.at(baseIndex + (static_cast<int>(state.trumpf) == 7 ? 6 : static_cast<int>(state.trumpf))) = 1.0f;
         baseIndex += 7;
 
         //Slalom Richtung
-        state.playerPerspective.at(baseIndex) = state.slalomDirection;
+        playerPerspective.at(baseIndex) = state.slalomDirection;
         baseIndex++;
 
         //Trumpf Macher
-        state.playerPerspective.at(baseIndex + state.trumpfDecider) = 1.0f;
+        playerPerspective.at(baseIndex + state.trumpfDecider) = 1.0f;
         baseIndex += 4;
 
         //Meine Hand
-        std::copy(state.players.at(state.currentPlayer).cardsEnc.begin(), state.players.at(state.currentPlayer).cardsEnc.end(), state.playerPerspective.begin() + baseIndex);
+        std::copy(state.players.at(state.currentPlayer).cardsEnc.begin(), state.players.at(state.currentPlayer).cardsEnc.end(), playerPerspective.begin() + baseIndex);
         baseIndex += 36;
 
         //Bereits gespielte Karten
         for (auto card : state.playedCards)
         {
-            state.playerPerspective.at(baseIndex + card.toArrayPosition()) = 1.0f;
+            playerPerspective.at(baseIndex + card.toArrayPosition()) = 1.0f;
         }
         baseIndex += 36;
 
         //Gezeigte Karten
         for (int player = 0; player < NUM_PLAYERS; player++)
         {
-            std::copy(state.players.at((player + state.currentPlayer) % 4).revealedCards.begin(), state.players.at((player + state.currentPlayer) % 4).revealedCards.end(), state.playerPerspective.begin() + baseIndex);
+            std::copy(state.players.at((player + state.currentPlayer) % 4).revealedCards.begin(), state.players.at((player + state.currentPlayer) % 4).revealedCards.end(), playerPerspective.begin() + baseIndex);
             baseIndex += 36;
         }
 
         //void Farben
         for (int player = 1; player < NUM_PLAYERS; player++)
         {
-            std::copy(state.provenEmptyCards.at((state.currentPlayer + player) % 4).begin(), state.provenEmptyCards.at((state.currentPlayer + player) % 4).end(), state.playerPerspective.begin() + baseIndex);
+            std::copy(state.provenEmptyCards.at((state.currentPlayer + player) % 4).begin(), state.provenEmptyCards.at((state.currentPlayer + player) % 4).end(), playerPerspective.begin() + baseIndex);
             baseIndex += 4;
         }
 
         //Karten im Stich
         //Muss an letzter Stelle durgchgegeben werden (foreach)
+
         for (auto card : state.playedCards)
         {
-            state.playerPerspective.at(baseIndex + card.toArrayPosition()) = 1.0f;
+            playerPerspective.at(baseIndex + card.toArrayPosition()) = 1.0f;
             baseIndex += 36;
         }
+
+        return playerPerspective;
     }
 
     std::array<float, 410> createCriticInformation()

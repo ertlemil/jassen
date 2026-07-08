@@ -39,7 +39,7 @@ num_epochs = 3
 clip_epsilon = (
     0.2
 )
-gamma = 0.99
+gamma = 1
 lmbda = 0.95
 entropy_eps = 1e-2
 
@@ -56,9 +56,9 @@ critic_net = nn.Sequential(
     nn.Linear(374, 256),
     nn.LayerNorm(256),
     nn.ReLU(),
-    nn.Linear(128, 64),
+    nn.Linear(256, 128),
     nn.ReLU(),
-    nn.Linear(64, 1)
+    nn.Linear(128, 1)
 )
 
 class Buffer:

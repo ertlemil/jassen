@@ -4,7 +4,7 @@ int main()
 {
     Game game;
 
-    game.step(17);
+    game.step(game.state.players.at(game.state.currentPlayer).cards.at(0).toArrayPosition());
 
     return 0;
 }

@@ -12,6 +12,8 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(pybind11)
 
+add_executable(Jassen src/main.cpp)
 pybind11_add_module(jass_engine src/Wrapper.cpp)
 
 target_include_directories(jass_engine PRIVATE src)
+target_include_directories(Jassen PRIVATE src)
