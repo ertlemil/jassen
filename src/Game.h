@@ -37,10 +37,10 @@ public:
 
 
 
-    std::array<float, 350> reset()
+    StepResult reset()
     {
         state = {};
-        return createPlayerPerspective();
+        return {createPlayerPerspective(), createCriticInformation(), createMask(), 0, false};
     }
 
     StepResult step(int cardIdx)

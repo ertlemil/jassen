@@ -1,9 +1,8 @@
 import torch
-from tensordict import TensorDict
+from tensordict import TensorDict, TensorDictBase
 
 from torchrl.data import Composite, UnboundedContinuous, Binary, Categorical
 from torchrl.envs import EnvBase
-from torchrl.envs.utils import check_env_specs
 
 import jass_engine
 
@@ -21,29 +20,31 @@ class JassEnv(EnvBase):
     def _step(self, tensordict):
         action = int(tensordict["action"].item())
         result = self.engine.step(action)
-
+        print(result)
         return TensorDict(
             {
                 "observation": torch.tensor(result.nextObservation, dtype=torch.float32),
-                "critic_observation": torch.tensor(result.nextCriticObservation, dtype=torch.float32),
+                "observation_critic": torch.tensor(result.nextCriticObservation, dtype=torch.float32),
                 "action_mask": torch.tensor(result.mask, dtype=torch.bool),
                 "reward": torch.tensor(result.reward, dtype=torch.float32),
                 "terminated": torch.tensor([result.done], dtype=torch.bool),
             },
-        tensordict.shape)
+        batch_size=tensordict.shape)
 
     def _reset(self, tensordict):
-        result = self.engine.reset()
+        if tensordict is None or tensordict.is_empty():
+            tensordict = self.gen_params()
 
+        result = self.engine.reset()
+        print(result)
         return TensorDict(
             {
                 "observation": torch.tensor(result.nextObservation, dtype=torch.float32),
-                "critic_observation": torch.tensor(result.nextCriticObservation, dtype=torch.float32),
+                "observation_critic": torch.tensor(result.nextCriticObservation, dtype=torch.float32),
                 "action_mask": torch.tensor(result.mask, dtype=torch.bool),
-                "reward": torch.tensor(result.reward, dtype=torch.float32),
                 "terminated": torch.tensor([result.done], dtype=torch.bool),
             },
-        tensordict.shape)
+        batch_size=tensordict.shape)
 
     def _set_seed(self, seed):
         pass
@@ -58,7 +59,7 @@ class JassEnv(EnvBase):
                 shape=torch.Size([*self.batch_size, 410]),
                 dtype=torch.float32
             ),
-            mask=Binary(
+            action_mask=Binary(
                 shape=torch.Size([*self.batch_size, 36]),
                 dtype=torch.bool
             ),
@@ -79,5 +80,19 @@ class JassEnv(EnvBase):
             shape=self.batch_size
         )
 
-env = JassEnv()
-check_env_specs(env)
+    def gen_params(self) -> TensorDictBase:
+        td = TensorDict(
+            {
+                "observation": torch.zeros((1, 350), dtype=torch.float32), #350x float32
+                "observation_critic": torch.zeros((1, 410), dtype=torch.float32), #410x float32
+                "action_mask": torch.zeros((1, 36), dtype=torch.bool), #36x bool
+                "reward": torch.tensor([0.0], dtype=torch.float32),
+                "terminated": torch.tensor([False], dtype=torch.bool),
+                "action": torch.zeros((0,0), dtype=torch.int64)
+            }, []
+        )
+        if self.batch_size:
+            td = td.expand(self.batch_size).contiguous()
+        return td
+
+
