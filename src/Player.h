@@ -53,6 +53,8 @@ public:
     std::array<float, 36> cardsEnc;
     std::vector<Card> cards;
 
+    std::array<float, 36> revealedCards;
+
 private:
     std::span<Card> cardSpan;
 

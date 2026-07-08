@@ -20,28 +20,25 @@ public:
         std::array<int, 2> teamPoints = {};
         std::vector<Card> currentCards = {};
         std::array<Player, 4> players = {deck.getCards(0), deck.getCards(1), deck.getCards(2), deck.getCards(3)};
-        std::array<std::vector<Card>, 4> revealedCards;
         std::vector<Card> playedCards;
-        std::array<float, 314> playerPerspective;
+        std::array<float, 350> playerPerspective;
         std::array<std::array<float, 4>, 4> provenEmptyCards;
         float slalomDirection = 1.0f;
     };
+    GameState state = {};
 
     struct StepResult
     {
-        std::array<float, 314> nextActorObservation;
-        std::array<float, 374> nextCriticObservation;
+        std::array<float, 350> nextActorObservation;
+        std::array<float, 410> nextCriticObservation;
         std::array<bool, 36> mask;
         int pointDiff;
         bool done;
     };
 
 
-    GameState state = {};
 
-
-
-    std::array<float, 314> reset()
+    std::array<float, 350> reset()
     {
         state = {};
         createPlayerPerspective();
@@ -94,9 +91,27 @@ public:
         return {state.playerPerspective, createCriticInformation(), createMask() ,pointDiff, done};
     }
 
+private:
+    static constexpr int NUM_ROUNDS = 9;
+    static constexpr int NUM_PLAYERS = 4;
+    static constexpr int POINTS_LAST_TRICK = 5;
+    static constexpr int NUM_CARDS = 36;
+
+    const std::map<Wert, int> cardValues = {
+        {Wert::Sechs, 0},
+        {Wert::Sieben, 0},
+        {Wert::Acht, 0},
+        {Wert::Neun, 0},
+        {Wert::Zehn, 10},
+        {Wert::Unter, 2},
+        {Wert::Ober, 3},
+        {Wert::Koenig, 4},
+        {Wert::Ass, 11}
+    };
+
     std::array<bool, 36> createMask()
     {
-        bool playableCardfound;
+        bool playableCardfound = false;
         std::array<bool, 36> mask;
         for (int i = 0; i < 36; i++)
         {
@@ -117,23 +132,6 @@ public:
 
         return mask;
     }
-
-private:
-    static constexpr int NUM_ROUNDS = 9;
-    static constexpr int NUM_PLAYERS = 4;
-    static constexpr int POINTS_LAST_TRICK = 5;
-
-    const std::map<Wert, int> cardValues = {
-        {Wert::Sechs, 0},
-        {Wert::Sieben, 0},
-        {Wert::Acht, 0},
-        {Wert::Neun, 0},
-        {Wert::Zehn, 10},
-        {Wert::Unter, 2},
-        {Wert::Ober, 3},
-        {Wert::Koenig, 4},
-        {Wert::Ass, 11}
-    };
 
     bool checkLegalCard(Card card)
     {
@@ -159,11 +157,11 @@ private:
             Card highestCard = card;
             for (auto card : state.currentCards)
             {
-                if (card.farbe == static_cast<Farbe>(state.trumpf) && isCardHigherOrEqual(highestCard, card))
+                if (card.farbe == static_cast<Farbe>(state.trumpf) && isCardHigher(highestCard, card))
                     highestCard = card;
             }
 
-            if (card.farbe == static_cast<Farbe>(state.trumpf) && isCardHigherOrEqual(card, highestCard))
+            if (card.farbe == static_cast<Farbe>(state.trumpf) && isCardHigher(card, highestCard))
                 return false;
         }
 
@@ -213,13 +211,10 @@ private:
         }
         baseIndex += 36;
 
-        //Bekannte Karten
-        for (int player = 1; player < NUM_PLAYERS; player++)
+        //Gezeigte Karten
+        for (int player = 0; player < NUM_PLAYERS; player++)
         {
-            for (auto card : state.revealedCards.at((state.currentPlayer + player) % 4))
-            {
-                state.playerPerspective.at(baseIndex + card.toArrayPosition()) = 1.0f;
-            }
+            std::copy(state.players.at((player + state.currentPlayer) % 4).revealedCards.begin(), state.players.at((player + state.currentPlayer) % 4).revealedCards.end(), state.playerPerspective.at(baseIndex));
             baseIndex += 36;
         }
 
@@ -239,9 +234,9 @@ private:
         }
     }
 
-    std::array<float, 374> createCriticInformation()
+    std::array<float, 410> createCriticInformation()
     {
-        std::array<float,374> fullInformation = {};
+        std::array<float,410> fullInformation = {};
         int baseIndex = 0;
 
         //Spielmodus
@@ -266,10 +261,7 @@ private:
         //Gezeigte Karten
         for (int player = 0; player < NUM_PLAYERS; player++)
         {
-            for (auto card : state.revealedCards.at(player))
-            {
-                fullInformation.at(baseIndex + ((player + state.currentPlayer) % 4) * 36 + card.toArrayPosition()) = 1.0f;
-            }
+            std::copy(state.players.at((player + state.currentPlayer) % 4).revealedCards.begin(), state.players.at((player + state.currentPlayer) % 4).revealedCards.end(), fullInformation.at(baseIndex));
             baseIndex += 36;
         }
 
@@ -297,7 +289,7 @@ private:
         result = static_cast<int>(std::distance(cards.begin(), std::max_element(cards.begin(),cards.end(),
             [this](const Card& a, const Card& b)
             {
-                return isCardHigherOrEqual(a, b);
+                return isCardHigher(a, b);
             }
         )));
         return result;
@@ -336,11 +328,8 @@ private:
         );
     }
 
-    bool isCardHigherOrEqual(const Card& currentHighest, const Card& newCard) const
+    bool isCardHigher(const Card& currentHighest, const Card& newCard) const
     {
-        if (currentHighest == newCard)
-            return true;
-
         if (state.trumpf == Trumpf::Geiss || state.slalomDirection == 0.0f)
             return newCard.wert < currentHighest.wert;
 
@@ -365,5 +354,45 @@ private:
             return newCard.wert > currentHighest.wert;
 
         return false;
+    }
+
+    void showCard()
+    {
+        for (auto player: state.players)
+        {
+            for (int colour = 0; colour < 4; colour++)
+            {
+                for (int i = 0; i < NUM_ROUNDS; i++)
+                {
+                    int j = 0;
+                    int length = 0;
+                    while (player.cardsEnc.at(colour * 9 + j) == 1.0f)
+                    {
+                        length++;
+                        j++;
+                    }
+
+                    if (length >= 3)
+                    {
+                        for (int position = i + colour * 9; position < i + length; position++)
+                        {
+                            player.revealedCards.at(position) = 1.0f;
+                        }
+                    }
+                }
+            }
+
+            //4 Gleiche
+            for (int i = 3; i < NUM_ROUNDS; i++)
+            {
+                if (player.cardsEnc.at(i) == 1.0f && player.cardsEnc.at(i + 9) == 1.0f && player.cardsEnc.at(i + 18) == 1.0f && player.cardsEnc.at(i + 27) == 1.0f)
+                {
+                    player.revealedCards.at(i) = 1.0f;
+                    player.revealedCards.at(i + 9) = 1.0f;
+                    player.revealedCards.at(i + 8) = 1.0f;
+                    player.revealedCards.at(i + 27) = 1.0f;
+                }
+            }
+        }
     }
 };
