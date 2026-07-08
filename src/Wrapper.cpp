@@ -10,6 +10,7 @@ PYBIND11_MODULE(jass_engine, m) {
     py::class_<Game::StepResult>(m, "StepResult")
         .def_readonly("nextObservation", &Game::StepResult::nextActorObservation)
         .def_readonly("nextCriticObservation", &Game::StepResult::nextCriticObservation)
+        .def_readonly("mask", &Game::StepResult::mask)
         .def_readonly("pointDiff", &Game::StepResult::pointDiff, "Punkteunterschied zwischen Team 1 und 2")
         .def_readonly("done", &Game::StepResult::done);
 
