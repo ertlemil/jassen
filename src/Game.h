@@ -24,8 +24,6 @@ public:
         std::array<std::array<float, 4>, 4> provenEmptyCards;
         float slalomDirection = 1.0f;
     };
-    GameState state = {};
-
     struct StepResult
     {
         std::array<float, 350> nextActorObservation;
@@ -34,13 +32,15 @@ public:
         float reward;
         bool done;
     };
-
+    GameState state = {};
 
 
     StepResult reset()
     {
         state = {};
-        return {createPlayerPerspective(), createCriticInformation(), createMask(), 0, false};
+        std::array<bool, 36> mask = createMask();
+
+        return {createPlayerPerspective(), createCriticInformation(), mask, 0, false};
     }
 
     StepResult step(int cardIdx)
@@ -226,8 +226,7 @@ private:
 
         //Karten im Stich
         //Muss an letzter Stelle durgchgegeben werden (foreach)
-
-        for (auto card : state.playedCards)
+        for (auto card : state.currentCards)
         {
             playerPerspective.at(baseIndex + card.toArrayPosition()) = 1.0f;
             baseIndex += 36;
