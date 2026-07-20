@@ -1,4 +1,7 @@
+import time
+
 import torchrl.data
+from matplotlib.patches import StepPatch
 from tensordict.nn import NormalParamExtractor, TensorDictModule
 from torch.distributions import Categorical
 
@@ -16,9 +19,8 @@ from torchrl.collectors import Collector
 from torchrl.data.replay_buffers import ReplayBuffer
 from torchrl.data.replay_buffers.samplers import SamplerWithoutReplacement
 from torchrl.data.replay_buffers.storages import LazyTensorStorage
-from torchrl.envs import (Compose, DoubleToFloat, ObservationNorm, StepCounter, TransformedEnv)
-from torchrl.envs.transforms import ActionMask
-from torchrl.envs.utils import check_env_specs, ExplorationType, set_exploration_type, step_mdp
+from torchrl.envs import (StepCounter, TransformedEnv)
+from torchrl.envs.utils import ExplorationType, set_exploration_type
 from torchrl.modules import ProbabilisticActor, MaskedCategorical
 from torchrl.objectives import ClipPPOLoss
 from torchrl.objectives.value import GAE
@@ -26,6 +28,7 @@ from tqdm import tqdm
 
 
 env = TransformedEnv(JassEnv(), StepCounter())
+eval_env = TransformedEnv(JassEnv(), StepCounter())
 
 
 is_fork = multiprocessing.get_start_method() == "fork"
@@ -127,9 +130,6 @@ scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
     optim, total_frames // frames_per_batch, 0.0
 )
 
-#for i, tensordict_data in enumerate(collector):
-#    print(i)
-
 
 logs = defaultdict(list)
 pbar = tqdm(total=total_frames)
@@ -166,7 +166,7 @@ for i, tensordict_data in enumerate(collector):
 
     if i % 10 == 0:
         with set_exploration_type(ExplorationType.DETERMINISTIC), torch.no_grad():
-            eval_rollout = env.rollout(1000, policy)
+            eval_rollout = eval_env.rollout(1000, policy)
             logs["eval reward"].append(eval_rollout["next", "reward"].mean().item())
             logs["eval reward (sum)"].append(
             eval_rollout["next", "reward"].sum().item()
@@ -176,11 +176,14 @@ for i, tensordict_data in enumerate(collector):
         f"eval cumulative reward: {logs['eval reward (sum)'][-1]: 4.4f} "
         f"(init: {logs['eval reward (sum)'][0]: 4.4f}), "
         f"eval step-count: {logs['eval step_count'][-1]}"
-    )
-    del eval_rollout
+        )
+        del eval_rollout
 
     pbar.set_description(", ".join([eval_str, cum_reward_str, stepcount_str, lr_str]))
 
     # We're also using a learning rate scheduler. Like the gradient clipping,
     # this is a nice-to-have but nothing necessary for PPO to work.
     scheduler.step()
+
+pbar.close()
+collector.shutdown()

@@ -20,7 +20,6 @@ class JassEnv(EnvBase):
     def _step(self, tensordict):
         action = int(tensordict["action"].item())
         result = self.engine.step(action)
-        #print(result.mask)
         return TensorDict(
             {
                 "observation": torch.tensor(result.nextObservation, dtype=torch.float32),
@@ -36,8 +35,6 @@ class JassEnv(EnvBase):
             tensordict = self.gen_params()
 
         result = self.engine.reset()
-        #print("___reset___")
-        #print(result.mask)
         return TensorDict(
             {
                 "observation": torch.tensor(result.nextObservation, dtype=torch.float32),

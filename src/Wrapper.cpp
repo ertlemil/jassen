@@ -11,12 +11,14 @@ PYBIND11_MODULE(jass_engine, m) {
         .def_readonly("nextObservation", &Game::StepResult::nextActorObservation)
         .def_readonly("nextCriticObservation", &Game::StepResult::nextCriticObservation)
         .def_readonly("mask", &Game::StepResult::mask)
-        .def_readonly("reward", &Game::StepResult::reward, "Punkteunterschied zwischen Team 1 und 2")
+        .def_readonly("reward", &Game::StepResult::reward)
         .def_readonly("done", &Game::StepResult::done);
 
 
     py::class_<Game>(m, "Game")
         .def(py::init<>())
-        .def("reset", &Game::reset, "Setzt das Spiel zurück und liefert die initiale Perspektive")
-        .def("step", &Game::step, py::arg("cardIdx"), "Führt einen Schritt mit der Karten-ID aus");
+        .def("reset", &Game::reset, py::call_guard<py::gil_scoped_release>())
+        .def("step", &Game::step, py::arg("cardIdx"), py::call_guard<py::gil_scoped_release>());
+
+    m.def("noop", []() {}, py::call_guard<py::gil_scoped_release>());
 }
